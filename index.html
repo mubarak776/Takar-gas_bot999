@@ -1,0 +1,150 @@
+<!DOCTYPE html>
+<html lang="bn">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Task Rain - Official</title>
+    
+    <script src='//libtl.com/sdk.js' data-zone='10981207' data-sdk='show_10981207'></script>
+    <script src="https://telegram.org/js/telegram-web-app.js"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <script src="https://www.gstatic.com/firebasejs/9.6.10/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.6.10/firebase-database-compat.js"></script>
+    
+    <style>
+        :root { --bkash: #e2136e; --bg: #f8f9fa; --card: #ffffff; --yt: #ff0000; --tg: #0088cc; }
+        body { background: var(--bg); font-family: 'Segoe UI', Arial, sans-serif; margin: 0; padding-bottom: 80px; -webkit-user-select: none; }
+        .header { background: linear-gradient(135deg, #e2136e, #a50d50); padding: 30px 20px; color: white; text-align: center; border-radius: 0 0 35px 35px; }
+        .balance-box { font-size: 38px; font-weight: bold; margin: 5px 0; }
+        .info-row { font-size: 13px; display: flex; justify-content: center; gap: 15px; opacity: 0.9; }
+        .section-title { font-size: 17px; font-weight: bold; color: #333; margin: 20px 15px 5px; border-left: 4px solid var(--bkash); padding-left: 10px; }
+        .card { background: var(--card); border-radius: 20px; padding: 20px; margin: 15px; box-shadow: 0 5px 15px rgba(0,0,0,0.05); text-align: center; }
+        .btn { width: 100%; padding: 15px; border-radius: 12px; border: none; background: var(--bkash); color: white; font-weight: bold; cursor: pointer; font-size: 16px; transition: 0.3s; margin-bottom: 5px; }
+        .btn:disabled { background: #ccc; cursor: not-allowed; }
+        .btn-check { background: #333; font-size: 12px; padding: 8px; margin-top: 5px; display: none; }
+        .btn-yt { background: var(--yt); }
+        .btn-tg { background: var(--tg); }
+        nav { position: fixed; bottom: 0; width: 100%; background: white; display: flex; justify-content: space-around; padding: 12px 0; border-top: 1px solid #eee; z-index: 100; }
+        nav div { color: #999; font-size: 11px; text-align: center; flex: 1; }
+        .active-nav { color: var(--bkash) !important; font-weight: bold; }
+        .page { display: none; } 
+        .active { display: block; }
+    </style>
+</head>
+<body>
+
+    <div class="header">
+        <p style="margin:0; font-size: 14px; opacity: 0.8;">বর্তমান ব্যালেন্স</p>
+        <div class="balance-box" id="bal">৳ 0.00</div>
+        <div class="info-row">
+            <span><i class="fas fa-user-plus"></i> রেফার: <b id="refCount">0</b>/১০</span>
+            <span><i class="fas fa-id-card"></i> আইডি: <b id="uCode">...</b></span>
+        </div>
+    </div>
+
+    <section id="task-page" class="page active">
+        <div class="section-title">সাবস্ক্রাইব টাস্ক (ভেরিফিকেশন সহ)</div>
+        <div class="card">
+            <div id="yt-area">
+                <button class="btn btn-yt" onclick="openSocial('youtube', 'https://youtube.com/@online_free_income_09')">
+                    <i class="fab fa-youtube"></i> ইউটিউব সাবস্ক্রাইব করুন
+                </button>
+                <button id="ytCheck" class="btn btn-check" onclick="verifyTask('youtube', 10)">সাবস্ক্রাইব করেছি (চেক করুন)</button>
+            </div>
+            <hr>
+            <div id="tg-area">
+                <button class="btn btn-tg" onclick="openSocial('telegram', 'https://t.me/Online_Free_Income_09')">
+                    <i class="fab fa-telegram-plane"></i> টেলিগ্রাম জয়েন করুন
+                </button>
+                <button id="tgCheck" class="btn btn-check" onclick="verifyTask('telegram', 10)">জয়েন করেছি (চেক করুন)</button>
+            </div>
+        </div>
+
+        <div class="section-title">আর্নিং মেনু</div>
+        <div class="card">
+            <h4>🎁 ডেইলি বোনাস</h4>
+            <button class="btn" id="bonusBtn" onclick="claimDaily()">বোনাস নিন (৳২০)</button>
+        </div>
+    </section>
+
+    <section id="withdraw-page" class="page">
+        <div class="section-title">টাকা উত্তোলন করুন</div>
+        <div class="card">
+            <input type="number" id="wAmt" placeholder="পরিমাণ (৳৫০০০+)" style="width:90%; padding:14px; margin-bottom:10px; border-radius:10px; border:1px solid #ddd;">
+            <input type="text" id="wNum" placeholder="বিকাশ নম্বর" style="width:90%; padding:14px; border-radius:10px; border:1px solid #ddd;">
+            <button class="btn" style="margin-top:15px;" onclick="requestWithdraw()">রিকোয়েস্ট পাঠান</button>
+        </div>
+    </section>
+
+    <nav>
+        <div onclick="pg('task-page', this)" class="active-nav"><i class="fas fa-tasks"></i><br>টাস্ক</div>
+        <div onclick="pg('withdraw-page', this)"><i class="fas fa-wallet"></i><br>উত্তোলন</div>
+    </nav>
+
+<script>
+    const firebaseConfig = { databaseURL: "https://earning-bot-1be22-default-rtdb.firebaseio.com/" };
+    firebase.initializeApp(firebaseConfig);
+    const db = firebase.database();
+    const tg = window.Telegram.WebApp;
+    tg.expand();
+
+    const user = tg.initDataUnsafe.user || { id: "8598824562", first_name: "User" };
+    const userRef = db.ref('users/' + user.id);
+
+    userRef.on('value', s => {
+        const d = s.val();
+        if (d) {
+            document.getElementById('bal').innerText = "৳ " + (d.balance || 0).toFixed(2);
+            document.getElementById('refCount').innerText = d.referrals || 0;
+            document.getElementById('uCode').innerText = user.id;
+
+            if (d.yt_done) document.getElementById('yt-area').innerHTML = '<p style="color:green; font-weight:bold;"><i class="fas fa-check"></i> ইউটিউব টাস্ক সফল!</p>';
+            if (d.tg_done) document.getElementById('tg-area').innerHTML = '<p style="color:green; font-weight:bold;"><i class="fas fa-check"></i> টেলিগ্রাম টাস্ক সফল!</p>';
+        }
+    });
+
+    // ১. সোশ্যাল লিঙ্ক ওপেন করা
+    function openSocial(type, link) {
+        window.open(link, '_blank');
+        if (type === 'youtube') document.getElementById('ytCheck').style.display = 'block';
+        if (type === 'telegram') document.getElementById('tgCheck').style.display = 'block';
+    }
+
+    // ২. টাস্ক ভেরিফাই করা (নকল ভেরিফিকেশন সিস্টেম)
+    function verifyTask(type, reward) {
+        const btn = type === 'youtube' ? document.getElementById('ytCheck') : document.getElementById('tgCheck');
+        btn.innerText = "চেক করা হচ্ছে...";
+        btn.disabled = true;
+
+        setTimeout(() => {
+            let updateData = {};
+            if (type === 'youtube') updateData.yt_done = true;
+            if (type === 'telegram') updateData.tg_done = true;
+            
+            userRef.update(updateData);
+            userRef.child('balance').set(firebase.database.ServerValue.increment(reward));
+            tg.showAlert(`ধন্যবাদ! আপনার সাবস্ক্রিপশন সফল হয়েছে। ${reward} টাকা যোগ করা হলো।`);
+        }, 3000); // ৩ সেকেন্ড লোডিং দেখাবে
+    }
+
+    function claimDaily() {
+        const today = new Date().toLocaleDateString();
+        userRef.update({ balance: firebase.database.ServerValue.increment(20), last_bonus: today });
+        tg.showAlert("বোনাস যোগ হয়েছে!");
+    }
+
+    function requestWithdraw() {
+        const amt = parseFloat(document.getElementById('wAmt').value);
+        if (amt < 5000) return tg.showAlert("কমপক্ষে ৫০০০ টাকা লাগবে!");
+        tg.showAlert("রিকোয়েস্ট সফল হয়েছে!");
+    }
+
+    function pg(p, el) {
+        document.querySelectorAll('.page').forEach(x => x.classList.remove('active'));
+        document.getElementById(p).classList.add('active');
+        document.querySelectorAll('nav div').forEach(d => d.classList.remove('active-nav'));
+        el.classList.add('active-nav');
+    }
+</script>
+</body>
+</html>
